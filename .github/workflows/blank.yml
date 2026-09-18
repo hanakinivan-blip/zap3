@@ -20,21 +20,32 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Extract Android project
         run: |
           ZIP=$(find . -maxdepth 1 -name "*.zip" | head -1)
           mkdir -p buildsrc
           unzip -q "$ZIP" -d buildsrc
 
-      - name: Find project
+      - name: Find Android project
         run: |
-          GRADLEW=$(find buildsrc -name "gradlew" -type f | head -1)
-          if [ -z "$GRADLEW" ]; then
-            echo "gradlew not found"
-            find buildsrc -maxdepth 3 -type f | head -100
+          SETTINGS=$(find buildsrc -name "settings.gradle.kts" -o -name "settings.gradle" | head -1)
+          if [ -z "$SETTINGS" ]; then
+            echo "Android project not found"
+            find buildsrc -maxdepth 4 -type f
             exit 1
           fi
-          echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> "$GITHUB_ENV"
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
+
+      - name: Create Gradle Wrapper
+        run: |
+          cd "$PROJECT_DIR"
+          gradle wrapper --gradle-version 8.7
 
       - name: Build APK
         run: |
