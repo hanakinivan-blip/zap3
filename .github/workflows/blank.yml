@@ -1,0 +1,55 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract Android project
+        run: |
+          ZIP=$(find . -maxdepth 1 -name "*.zip" | head -1)
+          mkdir -p buildsrc
+          unzip -q "$ZIP" -d buildsrc
+
+      - name: Find project
+        run: |
+          GRADLEW=$(find buildsrc -name "gradlew" -type f | head -1)
+          if [ -z "$GRADLEW" ]; then
+            echo "gradlew not found"
+            find buildsrc -maxdepth 3 -type f | head -100
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Collect APK
+        run: |
+          mkdir -p apk-output
+          find "$PROJECT_DIR" -path "*/build/outputs/apk/debug/*.apk" -exec cp {} apk-output/ \;
+          ls -lh apk-output
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AvtoZapchastiApp-debug
+          path: apk-output/*.apk
